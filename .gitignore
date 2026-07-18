@@ -1,0 +1,5 @@
+*.dylib
+gip-probe
+*.o
+*.dSYM/
+.DS_Store
