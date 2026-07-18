@@ -5,3 +5,7 @@ gip-probe
 .DS_Store
 build/
 app/ptylaunch
+crossover/xinput1_4.dll
+crossover/fakepad-helper
+crossover/xitest.exe
+crossover/xitest.c

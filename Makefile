@@ -28,7 +28,7 @@ install: fakepad.dylib
 clean:
 	rm -f fakepad.dylib gip-probe
 
-.PHONY: all install clean
+.PHONY: all install clean app install-app crossover
 
 APPNAME = Steam (fakepad).app
 APPDIR  = build/$(APPNAME)
@@ -51,3 +51,18 @@ install-app: app
 	rm -rf "/Applications/$(APPNAME)"
 	cp -R "$(APPDIR)" "/Applications/"
 	@echo "Installed to /Applications/$(APPNAME)"
+
+# ---- CrossOver (Windows Steam under Wine) ----
+MINGW ?= x86_64-w64-mingw32-gcc
+
+crossover/xinput1_4.dll: crossover/xinput_shim.c crossover/xinput.def
+	$(MINGW) -shared -O2 -o $@ crossover/xinput_shim.c crossover/xinput.def -lkernel32
+
+crossover/fakepad-helper: crossover/helper.c
+	$(CC) -O2 -o $@ crossover/helper.c $(LIBUSB_CFLAGS) $(shell pkg-config --libs libusb-1.0)
+
+crossover: crossover/xinput1_4.dll crossover/fakepad-helper
+	mkdir -p "$(PREFIX)"
+	cp crossover/fakepad-helper "$(PREFIX)/"
+	@echo "Built. Install into a bottle:  ./crossover/setup-bottle.sh <BottleName>"
+	@echo "Then launch:  ./crossover-steam.command"

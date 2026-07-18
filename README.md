@@ -132,19 +132,40 @@ the inner client under a controlling pty via a tiny `ptylaunch` helper (`forkpty
 so Steam doesn't re-exec. The helper is our own binary, not a SIP-protected one
 like `/usr/bin/script`, so the injection is preserved.
 
-### CrossOver (experimental)
+### CrossOver / Windows Steam under Wine
 
-Windows apps under CrossOver reach controllers through Wine's `winebus`. If your
-CrossOver's Wine uses the SDL **libusb** HIDAPI backend, the same shim works when
-injected into the bottle:
+The macOS libusb shim above can't help here: Windows `Steam.exe` under CrossOver
+uses Windows APIs, and Wine's controller bridge (`winebus`) reads the host via
+IOKit HID — which can't see a GIP pad (no HID interface) — not libusb. And
+CrossOver's app bundle is notarized + App-Management-protected, so injecting a
+macOS shim into Wine isn't possible either.
 
-```sh
-CX_BOTTLE=YourBottle ./crossover-fakepad.command "C:/path/to/Program.exe"
+Instead, `fakepad` hooks the **Windows** side using Wine's standard **DLL
+override** — entirely in the writable bottle, no app changes:
+
+```
+real pad → fakepad-helper (native, libusb) → Z:\tmp\fakepad_state
+                                                     │
+Windows Steam / game ← XInput ← xinput1_4.dll (our shim, in the bottle) ┘
 ```
 
-This is **untested** — it only works if winebus enumerates controllers via libusb
-(not the native IOKit HID path). If your Wine uses IOKit HID, the libusb-only fake
-device won't be visible and this won't help.
+- `crossover/helper.c` — native macOS helper: reads the pad over GIP and
+  publishes an XInput gamepad state to a file (Wine sees macOS `/` as `Z:`).
+- `crossover/xinput_shim.c` — a Windows `xinput1_4.dll` (built with mingw) that
+  reports that state to XInput callers, and forwards rumble back to the helper.
+
+Setup (no CrossOver modification, no re-signing):
+
+```sh
+brew install mingw-w64
+make crossover
+./crossover/setup-bottle.sh Steam     # drops the DLLs in the bottle + sets native overrides
+./crossover-steam.command             # runs the helper, then launches Windows Steam
+```
+
+Works for XInput-based games (the standard for Xbox controllers on Windows).
+Requires the pad plugged directly into the Mac, and native macOS Steam closed
+(only one process can hold the USB device).
 
 ## Diagnostics
 
