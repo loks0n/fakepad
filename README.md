@@ -159,13 +159,22 @@ Setup (no CrossOver modification, no re-signing):
 ```sh
 brew install mingw-w64
 make crossover
-./crossover/setup-bottle.sh Steam     # drops the DLLs in the bottle + sets native overrides
-./crossover-steam.command             # runs the helper, then launches Windows Steam
+./crossover/setup-bottle.sh Steam     # DLLs + native overrides + a helper LaunchAgent
 ```
 
+`setup-bottle.sh` also installs a **LaunchAgent** that keeps the native helper
+running, so you can just **launch Steam from the CrossOver UI (or its dock icon)**
+— no wrapper needed. (`crossover-steam.command` is still there if you prefer a
+one-shot launcher.)
+
 Works for XInput-based games (the standard for Xbox controllers on Windows).
-Requires the pad plugged directly into the Mac, and native macOS Steam closed
-(only one process can hold the USB device).
+Requires the pad plugged directly into the Mac. The helper holds the USB device,
+so it and native macOS Steam are mutually exclusive — to switch back to native
+macOS Steam, stop the agent:
+
+```sh
+launchctl bootout gui/$(id -u)/io.loks0n.fakepad.helper
+```
 
 ## Diagnostics
 
