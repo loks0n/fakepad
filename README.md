@@ -92,17 +92,59 @@ make install          # copies fakepad.dylib + a real libusb into ~/.local/share
 
 ## Run
 
+Two ways, both non-invasive (Steam's own app is never modified):
+
+**A dock app (recommended)** — build a launcher you can keep in the Dock:
+
+```sh
+make install-app     # creates "/Applications/Steam (fakepad).app"
+```
+
+Launch Steam from **Steam (fakepad).app** instead of the normal Steam icon.
+
+**Or a double-click script:**
+
 ```sh
 ./steam-fakepad.command
 ```
 
-Launch Steam via this script instead of the dock icon. Plug the controller
-**directly into the Mac** (USB hubs can brown-out the whole chain). It appears in
-Steam as an "Xbox One S Controller".
+Plug the controller **directly into the Mac** (USB hubs can brown-out the whole
+chain). It appears in Steam as an "Xbox One S Controller".
 
 Other GIP pads: override the target with `FAKEPAD_VID` / `FAKEPAD_PID`
 (hex, e.g. `FAKEPAD_VID=20d6 FAKEPAD_PID=2062`). Set `FAKEPAD_DEBUG=1` to log to
 `/tmp/fakepad.log`.
+
+### Why a separate launcher (and not the normal Steam icon)?
+
+`DYLD_INSERT_LIBRARIES` is how the shim gets into Steam. The Steam icon can't
+carry it:
+
+- The Dock launches `/Applications/Steam.app`, whose bootstrapper has the
+  **hardened runtime** — dyld strips `DYLD_*` and purges it before exec'ing the
+  real client, so nothing propagates. (Re-signing Steam.app would defeat this but
+  breaks its keychain/login — not worth it.)
+- Steam's inner client also **re-execs through that bootstrapper** whenever it's
+  started without a controlling terminal, which would drop the injection.
+
+The launcher sidesteps both: it sets `DYLD_INSERT_LIBRARIES` itself, then starts
+the inner client under a controlling pty via a tiny `ptylaunch` helper (`forkpty`)
+so Steam doesn't re-exec. The helper is our own binary, not a SIP-protected one
+like `/usr/bin/script`, so the injection is preserved.
+
+### CrossOver (experimental)
+
+Windows apps under CrossOver reach controllers through Wine's `winebus`. If your
+CrossOver's Wine uses the SDL **libusb** HIDAPI backend, the same shim works when
+injected into the bottle:
+
+```sh
+CX_BOTTLE=YourBottle ./crossover-fakepad.command "C:/path/to/Program.exe"
+```
+
+This is **untested** — it only works if winebus enumerates controllers via libusb
+(not the native IOKit HID path). If your Wine uses IOKit HID, the libusb-only fake
+device won't be visible and this won't help.
 
 ## Diagnostics
 

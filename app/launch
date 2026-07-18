@@ -1,0 +1,18 @@
+#!/bin/bash
+# Executable inside Steam (fakepad).app — inject fakepad and launch Steam's inner
+# client under a controlling pty (so it doesn't re-exec and drop the injection).
+PREFIX="${FAKEPAD_PREFIX:-$HOME/.local/share/fakepad}"
+SHIM="$PREFIX/fakepad.dylib"; REAL="$PREFIX/libusb-real.dylib"
+INNER="$HOME/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/steam_osx"
+HERE="$(cd "$(dirname "$0")" && pwd)"
+
+[ -f "$SHIM" ] || { osascript -e 'display alert "fakepad not installed" message "Build with: make install"'; exit 1; }
+if [ ! -f "$REAL" ]; then
+  for c in "$(pkg-config --variable=libdir libusb-1.0 2>/dev/null)/libusb-1.0.0.dylib" \
+           "$HOME/Library/Application Support/Steam/Steam.AppBundle/Steam/Contents/MacOS/libusb-1.0.0.dylib"; do
+    [ -f "$c" ] && { rm -f "$REAL"; cp "$c" "$REAL"; codesign -f -s - "$REAL"; break; }
+  done
+fi
+pkill -x steam_osx 2>/dev/null; sleep 1
+export DYLD_INSERT_LIBRARIES="$SHIM"
+exec "$HERE/ptylaunch" "$INNER"

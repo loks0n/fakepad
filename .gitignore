@@ -3,3 +3,5 @@ gip-probe
 *.o
 *.dSYM/
 .DS_Store
+build/
+app/ptylaunch
